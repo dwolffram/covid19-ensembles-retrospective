@@ -4,11 +4,13 @@ Sys.setlocale("LC_ALL", "C")
 
 VALID_TARGETS = c(paste(1:4, "wk ahead inc death"), paste(1:4, "wk ahead cum death"), paste(1:4, "wk ahead inc case"))
 
-MODELS_TO_EXCLUDE = c('COVIDhub-ensemble', 'COVIDhub-trained_ensemble', 
+MODELS_TO_EXCLUDE = c('COVIDhub-ensemble', 'COVIDhub-trained_ensemble', 'COVIDhub-4_week_ensemble',
                       'CU-nochange', 'CU-scenario_high', 'CU-scenario_low', 'CU-scenario_mid',
                       'KITmetricslab-select_ensemble')
 
 LOCATIONS_TO_EXCLUDE = c("11", "60", "66", "69", "72", "74", "78")
+
+START_DATE = '2021-04-19'
 
 next_monday <- Vectorize(function(date){
   date + (0:6)[weekdays(date + (0:6)) == "Monday"]
@@ -16,7 +18,7 @@ next_monday <- Vectorize(function(date){
 )
 
 
-get_all_filepaths_and_dates <- function(){
+get_all_filepaths_and_dates <- function(models_to_exclude, start_date){
   files <- list.files(path=paste0("../covid19-forecast-hub/data-processed/"), 
                       pattern=".csv$", full.names = TRUE, recursive=TRUE)
   
@@ -29,10 +31,11 @@ get_all_filepaths_and_dates <- function(){
   df_files$timezero <- sapply(df_files$forecast_date, next_monday)
   df_files$timezero <- as.Date(df_files$timezero, origin = "1970-01-01")
   df_files <- df_files %>%
-    filter(!(model %in% MODELS_TO_EXCLUDE) )
+    filter(!(model %in% models_to_exclude) &
+             timezero >= start_date)
 }
 
-df_files <- get_all_filepaths_and_dates()
+df_files <- get_all_filepaths_and_dates(MODELS_TO_EXCLUDE, START_DATE)
 
 load_file <- function(path, valid_targets, locations_to_exclude){
   
@@ -96,7 +99,7 @@ for (row in 1:nrow(df_files)){
 }
 close(pb)
 
-write_csv(df, "data/df.csv.gz", row.names=FALSE)
+write_csv(df, "data/df.csv.gz")
 
 df_cd <- df %>%
   filter(target %in% paste(1:4, "wk ahead cum death"))

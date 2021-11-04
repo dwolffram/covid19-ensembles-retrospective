@@ -67,8 +67,8 @@ load_train_test <- function(forecast_date, national_level = FALSE){
 }
 
 
-load_data <- function(){
-  df <- read_csv("data/df_cumulative_deaths.csv.gz", col_types = cols(forecast_date = col_date(format = ""),
+load_data <- function(target = "cum death"){
+  df <- read_csv("data/df.csv.gz", col_types = cols(forecast_date = col_date(format = ""),
                                                                  target = col_character(),
                                                                  target_end_date = col_date(format = ""),
                                                                  location = col_character(),
@@ -82,12 +82,15 @@ load_data <- function(){
     mutate(timezero = as.Date(next_monday(forecast_date), origin = "1970-01-01")) %>%
     unnest(cols = c(data))
   
+  df <- df %>%
+    filter(target %in% paste(1:4, "wk ahead", !!target))
+  
   return(df)
 }
 
 
 # select train and test data for models that use the full history (with missing submissions)
-train_test_split <- function(df, test_date){
+train_test_split <- function(df, test_date, intersect = TRUE){
   df_test <- df %>%
     filter(timezero == test_date) %>%    
     as.data.frame()
@@ -98,6 +101,14 @@ train_test_split <- function(df, test_date){
            model %in% unique(df_test$model)) %>%
     as.data.frame()
   
+  if(intersect){
+    df_train <- df_train %>%
+      filter(model %in% unique(df_test$model))
+    
+    df_test <- df_test %>%
+      filter(model %in% unique(df_train$model))
+  }
+
   df_train <- add_truth(df_train, as_of=test_date)
   df_test$truth <- NA
   
@@ -105,8 +116,13 @@ train_test_split <- function(df, test_date){
 }
 
 
-# df <- load_data()
-# 
-# dfs <- train_test_split(df, "2021-07-19")
-# train <- dfs$df_train
-# test <- dfs$df_test
+df <- load_data()
+
+dfs <- train_test_split(df, "2021-07-19")
+train <- dfs$df_train
+test <- dfs$df_test
+
+sort(unique(train$model)) == sort(unique(test$model))
+sort(unique(train$model)) 
+sort(unique(test$model))
+
